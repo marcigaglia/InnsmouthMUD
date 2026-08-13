@@ -146,6 +146,7 @@ LOCATIONS = {
         "items": {
             "appunti del pescatore": "Pagine di diario scritte in preda al terrore. Parlano di creature emerse dal mare, di riti notturni, e di qualcosa chiamato 'la Trasformazione'.",
             "arpione": "Un arpione arrugginito ma ancora affilato. Potrebbe essere utile.",
+            "mappa di innsmouth": "Una mappa disegnata a mano su carta cerata, con le strade di Innsmouth segnate con inchiostro sbiadito. Qualcuno ha annotato i luoghi con simboli inquietanti. Usala per orientarti.",
         },
         "actions": {
             "leggi appunti": [
@@ -326,6 +327,187 @@ def pick_up_item(state: PlayerState, item: str) -> Optional[str]:
             state.turn += 1
             return description
     return None
+
+
+# ─────────────────────────────────────────────
+# Mappa ASCII
+# ─────────────────────────────────────────────
+
+# Layout fisso della mappa. @ = posizione giocatore, ? = non ancora visitato
+MAP_TEMPLATE = """\
+        .~~~~~~~~~~~~~~~~~.
+        |   MARE NERO     |
+        '~~~~~~~~~~~~~~~~~'
+               |
+        +------+------+
+        |   PALUDI    |
+        |   {marshes}    |
+        +------+------+
+               |
+  +-------+----+----+-------+
+  |       |         |       |
++-+----+  |  VIA    |  +----+-+
+|CAPANN|--+ PRINC.  +--+CHIESA|
+| {fishermans_hut} |  | {main_street} |  | {old_church} |
++------+  +---------+  +------+
+               |
+        +------+------+
+        |    MOLO     |
+        |  {innsmouth_dock}   |
+        +------+------+
+               |
+        .~~~~~~~~~~~~~~~~~.
+        |   MARE NERO     |
+        '~~~~~~~~~~~~~~~~~'
+"""
+
+LOCATION_LABELS = {
+    "innsmouth_dock": "MOLO",
+    "main_street":    " VIA ",
+    "old_church":     "CHIES",
+    "fishermans_hut": "CAPAN",
+    "marshes":        "PALUD",
+}
+
+
+def render_map(state: PlayerState) -> str:
+    """
+    Genera la mappa ASCII con:
+    - [###] luoghi visitati
+    - ( @ ) posizione attuale
+    - [???] luoghi non ancora visitati
+    """
+    slots = {}
+    for loc_id, label in LOCATION_LABELS.items():
+        if loc_id == state.location:
+            slots[loc_id] = f" @  "   # posizione attuale
+        elif loc_id in state.visited:
+            slots[loc_id] = f"ok  "   # visitato
+        else:
+            slots[loc_id] = f"??  "   # non visitato
+
+    # Mappa compatta con monospace
+    current_name = LOCATIONS[state.location]["name"]
+    visited_count = len(state.visited)
+
+    map_art = (
+        "```\n"
+        "  ╔══════════════════════╗\n"
+        "  ║   MAPPA DI INNSMOUTH ║\n"
+        "  ╚══════════════════════╝\n"
+        "\n"
+        "       [ PALUDI  ]\n"
+        "            │\n"
+    )
+
+    def box(loc_id):
+        if loc_id == state.location:
+            return "[ ◉ YOU ]"
+        elif loc_id in state.visited:
+            return "[  ░░░  ]"
+        else:
+            return "[  ???  ]"
+
+    map_art += (
+        f"       {box('marshes')}\n"
+        "            │\n"
+        f"{box('fishermans_hut')}─────{box('main_street')}─────{box('old_church')}\n"
+        "  Capanna   │    Via    │   Chiesa\n"
+        "            │\n"
+        f"       {box('innsmouth_dock')}\n"
+        "         Molo\n"
+        "            │\n"
+        "        ≈≈≈≈≈≈≈\n"
+        "        MARE NERO\n"
+        "\n"
+        f"◉ = Sei qui: {current_name}\n"
+        f"░ = Visitato  ? = Inesplorato\n"
+        f"Luoghi visitati: {visited_count}/5\n"
+        "```"
+    )
+
+    return map_art
+
+
+def use_item(state: PlayerState, item: str) -> Optional[str]:
+    """
+    Usa un oggetto dall'inventario.
+    Ritorna il risultato come stringa, o None se l'oggetto non è usabile/posseduto.
+    """
+    item_lower = item.lower()
+
+    # Cerca nell'inventario
+    found = None
+    for inv_item in state.inventory:
+        if item_lower in inv_item.lower():
+            found = inv_item
+            break
+
+    if not found:
+        return None
+
+    # Effetti degli oggetti
+    if "mappa" in found.lower():
+        return render_map(state)
+
+    if "lanterna" in found.lower():
+        return (
+            "Scuoti la lanterna — è vuota. Ma per un secondo, nella luce assente, "
+            "vedi l'ombra di qualcosa che non c'è. Poi tutto torna buio."
+        )
+
+    if "arpione" in found.lower():
+        return (
+            "Stringi l'arpione. Il metallo arrugginito taglia il palmo della mano — "
+            "non abbastanza da fare male davvero, ma abbastanza da ricordarti che sei ancora vivo. "
+            "_+5 HP dalla scarica di adrenalina._"
+        )
+
+    if "simbolo" in found.lower():
+        state.sanity = max(0, state.sanity - 5)
+        return (
+            "Fissi il simbolo di Dagon. I bordi sembrano muoversi. "
+            "La tua mente vacilla mentre qualcosa di enorme e lontano prende nota della tua esistenza. "
+            "_-5 Sanità._"
+        )
+
+    if "candela" in found.lower():
+        return (
+            "Tieni la candela nera. Non brucia, eppure scalda. "
+            "Un odore di incenso e alghe ti avvolge. Qualcosa ti sussurra un numero — "
+            "non sai cosa significhi, ma non riuscirai a dimenticarlo."
+        )
+
+    if "appunti" in found.lower():
+        return (
+            "Rileggi gli appunti del pescatore. Una riga che non avevi notato prima: "
+            "'_Se li incontri, non guardare gli occhi. Non gli occhi._' "
+            "La pagina successiva è strappata."
+        )
+
+    if "pietra" in found.lower():
+        state.sanity = max(0, state.sanity - 3)
+        return (
+            "Le incisioni sulla pietra sembrano calde al tatto. "
+            "Più le guardi, più le figure sembrano muoversi — creature che emergono dall'acqua, "
+            "esseri umani che cambiano forma. Posi la pietra in fretta. _-3 Sanità._"
+        )
+
+    if "rete" in found.lower():
+        return (
+            "Srotoli la rete. È strappata in modo strano — dall'interno verso l'esterno. "
+            "Qualunque cosa ci fosse rimasta intrappolata, si è liberata con forza."
+        )
+
+    if "giornale" in found.lower():
+        return (
+            "Sfoglie il giornale ingiallito. Un articolo parla del 'Grande Festival di Dagon del 1927'. "
+            "Le foto sono state strappate via, ma rimane una didascalia: "
+            "'I cittadini di Innsmouth celebrano la loro eredità ancestrale.' "
+            "Nessun nome. Nessun volto."
+        )
+
+    return f"Esamini {found}, ma non sai come usarlo qui."
 
 
 # ─────────────────────────────────────────────

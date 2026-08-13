@@ -9,6 +9,7 @@ Avvio:
 
 import logging
 import os
+import random
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application,
@@ -22,6 +23,7 @@ from telegram.ext import (
 from game import (
     get_session, reset_session, move_player, pick_up_item,
     describe_location, describe_move, resolve_action,
+    use_item, render_map,
     LOCATIONS,
 )
 
@@ -43,6 +45,7 @@ def build_keyboard(state) -> InlineKeyboardMarkup:
     loc = state.current_location()
     buttons = []
 
+    # Uscite
     exit_row = []
     for direction in loc["exits"]:
         label = DIRECTION_EMOJI.get(direction, direction.capitalize())
@@ -50,6 +53,7 @@ def build_keyboard(state) -> InlineKeyboardMarkup:
     if exit_row:
         buttons.append(exit_row)
 
+    # Oggetti raccoglibili
     if loc["items"]:
         item_row = []
         for item in list(loc["items"].keys())[:3]:
@@ -57,11 +61,20 @@ def build_keyboard(state) -> InlineKeyboardMarkup:
             item_row.append(InlineKeyboardButton(f"🖐 {short}", callback_data=f"pick:{item}"))
         buttons.append(item_row)
 
+    # Azioni fisse
     buttons.append([
         InlineKeyboardButton("🎒 Inventario", callback_data="inventory"),
         InlineKeyboardButton("❤️ Stato", callback_data="status"),
         InlineKeyboardButton("👁 Osserva", callback_data="look"),
     ])
+
+    # Oggetti usabili dall'inventario
+    if state.inventory:
+        use_row = []
+        for inv_item in state.inventory[:3]:
+            short = inv_item[:12] + "…" if len(inv_item) > 12 else inv_item
+            use_row.append(InlineKeyboardButton(f"✨ {short}", callback_data=f"use:{inv_item}"))
+        buttons.append(use_row)
 
     return InlineKeyboardMarkup(buttons)
 
@@ -101,15 +114,16 @@ async def send_scene(update: Update, state, text: str, answer_callback: bool = F
 
 
 async def check_game_over(update: Update, state, user_id: int) -> bool:
+    msg = update.callback_query.message if update.callback_query else update.message
     if state.hp <= 0:
-        await update.message.reply_text(
+        await msg.reply_text(
             "💀 *Il tuo cuore si ferma.*\n\nInnsmouth ha reclamato un'altra anima.\n\nUsa /start per ricominciare.",
             parse_mode="Markdown",
         )
         reset_session(user_id)
         return True
     if state.sanity <= 0:
-        await update.message.reply_text(
+        await msg.reply_text(
             "🌀 *La tua mente si spezza.*\n\nL'orrore cosmico ha consumato la tua ragione.\n\nUsa /start per ricominciare.",
             parse_mode="Markdown",
         )
@@ -132,8 +146,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "la fronte sudata e non ti ha mai guardato in faccia. "
         "Ora sei solo, con una valigia consumata e un indirizzo che potrebbe non esistere.\n\n"
         "Il mare batte sulla roccia con un ritmo irregolare — quasi un linguaggio.\n\n"
-        "_Usa i pulsanti per muoverti, raccogliere oggetti o osservare l'ambiente. "
-        "Puoi anche scrivere liberamente azioni come: 'esamina mare', 'ascolta', 'apri porta'._"
+        "_Usa i pulsanti per muoverti e raccogliere oggetti. "
+        "Scrivi liberamente azioni come: 'esamina mare', 'ascolta', 'apri porta'. "
+        "Nella capanna del pescatore trovi una mappa — usala con ✨ per orientarti._"
     )
 
     keyboard = build_keyboard(state)
@@ -146,11 +161,13 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/start — Inizia (o ricomincia) l'avventura\n"
         "/look — Osserva l'ambiente\n"
         "/inventory — Controlla l'inventario\n"
+        "/usa `oggetto` — Usa un oggetto\n"
         "/status — Stato del personaggio\n\n"
         "*Azioni in testo libero:*\n"
         "`esamina mare`, `ascolta`, `apri porta`,\n"
         "`leggi appunti`, `esamina mappa`, `segui luci`…\n\n"
-        "Ogni stanza ha azioni specifiche da scoprire."
+        "Ogni stanza ha azioni specifiche da scoprire.\n\n"
+        "✨ I pulsanti con ✨ usano gli oggetti nell'inventario."
     )
     await update.message.reply_text(text, parse_mode="Markdown")
 
@@ -158,9 +175,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def look(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     state = get_session(user_id)
-    # Forza una nuova descrizione random (non first_visit)
     loc = state.current_location()
-    import random
     narration = random.choice(loc["descriptions"])
     await send_scene(update, state, narration)
 
@@ -171,24 +186,50 @@ async def inventory_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if state.inventory:
         items = "\n".join(f"  • {item}" for item in state.inventory)
-        text = f"🎒 *Il tuo zaino contiene:*\n{items}"
+        text = f"🎒 *Il tuo zaino contiene:*\n{items}\n\n_Usa ✨ sui pulsanti per usare un oggetto._"
     else:
         text = "🎒 Il tuo zaino è vuoto. Forse è meglio così."
 
     await update.message.reply_text(text, parse_mode="Markdown")
 
 
+async def usa_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    state = get_session(user_id)
+    args = context.args
+
+    if not args:
+        if not state.inventory:
+            await update.message.reply_text("Non hai nulla da usare.")
+            return
+        items = "\n".join(f"  • {i}" for i in state.inventory)
+        await update.message.reply_text(
+            f"Cosa vuoi usare? Scrivi `/usa nome-oggetto`\n\n{items}",
+            parse_mode="Markdown",
+        )
+        return
+
+    item_name = " ".join(args)
+    result = use_item(state, item_name)
+
+    if result is None:
+        await update.message.reply_text(f"Non hai '{item_name}' nell'inventario.")
+    elif result.startswith("```"):
+        await update.message.reply_text(result, parse_mode="Markdown")
+    else:
+        await send_scene(update, state, result)
+
+
 async def status_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     state = get_session(user_id)
     loc = state.current_location()
-    luoghi_visitati = len(state.visited)
 
     text = (
         f"📊 *Stato del personaggio*\n\n"
         f"📍 Sei a: {loc['name']}\n"
         f"🔄 Turno: {state.turn}\n"
-        f"🗺 Luoghi visitati: {luoghi_visitati}/5\n\n"
+        f"🗺 Luoghi visitati: {len(state.visited)}/5\n\n"
         f"{status_bar(state)}"
     )
     await update.message.reply_text(text, parse_mode="Markdown")
@@ -205,6 +246,18 @@ async def free_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not action:
         return
+
+    # Intercetta "usa mappa" o simili scritti a testo
+    action_lower = action.lower()
+    if action_lower.startswith("usa ") or action_lower.startswith("use "):
+        item_name = action_lower.split(" ", 1)[1]
+        result = use_item(state, item_name)
+        if result is not None:
+            if result.startswith("```"):
+                await update.message.reply_text(result, parse_mode="Markdown")
+            else:
+                await send_scene(update, state, result)
+            return
 
     result = resolve_action(state, action)
     narration = result["narration"]
@@ -251,8 +304,20 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             await query.answer("Non trovi quell'oggetto.", show_alert=True)
 
+    elif data.startswith("use:"):
+        item = data.split(":", 1)[1]
+        result = use_item(state, item)
+
+        if result is None:
+            await query.answer("Non hai quell'oggetto.", show_alert=True)
+        elif result.startswith("```"):
+            # Mappa ASCII — messaggio separato
+            await query.answer()
+            await query.message.reply_text(result, parse_mode="Markdown")
+        else:
+            await send_scene(update, state, result, answer_callback=True)
+
     elif data == "look":
-        import random
         loc = state.current_location()
         narration = random.choice(loc["descriptions"])
         await send_scene(update, state, narration, answer_callback=True)
@@ -287,6 +352,7 @@ def main():
     app.add_handler(CommandHandler("help", help_command))
     app.add_handler(CommandHandler("look", look))
     app.add_handler(CommandHandler("inventory", inventory_cmd))
+    app.add_handler(CommandHandler("usa", usa_cmd))
     app.add_handler(CommandHandler("status", status_cmd))
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, free_action))
