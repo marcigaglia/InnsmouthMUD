@@ -14,7 +14,7 @@ poi tornare al molo per scoprire la verità.
 CLUES = {
     "pagina_diario": {
         "location": "fishermans_hut",
-        "trigger_action": ["leggi appunti", "leggi", "appunti", "diario"],
+        "trigger_action": ["leggi appunti", "leggi", "appunti", "diario", "guarda appunti", "usa appunti"],
         "found_text": (
             "Tra le pagine degli appunti del pescatore trovi una pagina scivolata via — "
             "diversa dalle altre, scritta in una calligrafia più vecchia e tremante.\n\n"
@@ -53,7 +53,7 @@ CLUES = {
     },
     "giornale_articolo": {
         "location": "main_street",
-        "trigger_action": ["leggi giornale", "leggi", "giornale", "esamina giornale"],
+        "trigger_action": ["leggi giornale", "leggi", "giornale", "esamina giornale", "guarda giornale"],
         "found_text": (
             "Nel retro del giornale, nascosto tra le inserzioni funebri, trovi un articolo "
             "quasi illeggibile per via dell'umidità:\n\n"
