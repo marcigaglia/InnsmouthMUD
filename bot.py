@@ -92,7 +92,8 @@ async def send_scene(update: Update, state, text: str, answer_callback: bool = F
 
     if answer_callback and update.callback_query:
         await update.callback_query.answer()
-        await update.callback_query.edit_message_text(
+        # Invia sempre un nuovo messaggio invece di editare — più compatibile
+        await update.callback_query.message.reply_text(
             full_text,
             reply_markup=keyboard,
             parse_mode="Markdown",
