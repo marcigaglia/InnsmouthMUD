@@ -242,6 +242,8 @@ class PlayerState:
     inventory: list = field(default_factory=list)
     visited: set = field(default_factory=set)
     turn: int = 0
+    clues_found: set = field(default_factory=set)
+    quest_completed: bool = False
 
     def current_location(self) -> dict:
         return LOCATIONS[self.location]

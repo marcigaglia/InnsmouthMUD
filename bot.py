@@ -26,6 +26,7 @@ from game import (
     use_item, render_map,
     LOCATIONS,
 )
+from quest import check_clue, check_quest_finale, quest_status, QUEST_FINALE, CLUES
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -162,6 +163,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/look — Osserva l'ambiente\n"
         "/inventory — Controlla l'inventario\n"
         "/usa `oggetto` — Usa un oggetto\n"
+        "/quest — Stato della quest attiva\n"
         "/status — Stato del personaggio\n\n"
         "*Azioni in testo libero:*\n"
         "`esamina mare`, `ascolta`, `apri porta`,\n"
@@ -235,6 +237,12 @@ async def status_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(text, parse_mode="Markdown")
 
 
+async def quest_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    state = get_session(user_id)
+    await update.message.reply_text(quest_status(state), parse_mode="Markdown")
+
+
 # ─────────────────────────────────────────────
 # Azioni libere
 # ─────────────────────────────────────────────
@@ -258,6 +266,18 @@ async def free_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
             else:
                 await send_scene(update, state, result)
             return
+
+    # Controlla indizi quest prima dell'azione generica
+    clue_text = check_clue(state, action)
+    if clue_text:
+        state.turn += 1
+        found_count = len(state.clues_found)
+        total = len(CLUES)
+        suffix = f"\n\n📜 _Indizi raccolti: {found_count}/{total}_"
+        if found_count == total:
+            suffix += "\n_Hai tutti gli indizi. Torna al molo..._"
+        await send_scene(update, state, clue_text + suffix)
+        return
 
     result = resolve_action(state, action)
     narration = result["narration"]
@@ -290,6 +310,16 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             transition = describe_move(old_loc, state.location)
             arrival = describe_location(state)
             narration = f"{transition}\n\n{arrival}"
+
+            # Controlla finale quest
+            if check_quest_finale(state):
+                state.quest_completed = True
+                state.sanity = max(0, state.sanity - 20)
+                await query.answer()
+                await query.message.reply_text(QUEST_FINALE, parse_mode="Markdown")
+                await send_scene(update, state, "Il molo è silenzioso. Il mare è silenzioso. Solo tu sai la verità.")
+                return
+
             await send_scene(update, state, narration, answer_callback=True)
         else:
             await query.answer("Non puoi andare in quella direzione.", show_alert=True)
@@ -354,6 +384,7 @@ def main():
     app.add_handler(CommandHandler("inventory", inventory_cmd))
     app.add_handler(CommandHandler("usa", usa_cmd))
     app.add_handler(CommandHandler("status", status_cmd))
+    app.add_handler(CommandHandler("quest", quest_cmd))
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, free_action))
 
