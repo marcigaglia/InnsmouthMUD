@@ -12,42 +12,45 @@ from typing import Optional
 @dataclass
 class QuestClue:
     """Un singolo indizio della quest."""
-    id: str                        # identificatore univoco
-    location: str                  # id della stanza dove si trova
-    triggers: list[str]            # parole chiave che lo sbloccano
-    found_text: str                # testo mostrato quando viene trovato
-    journal_entry: str             # riga breve per il diario indizi
+    id: str
+    location: str
+    triggers: list[str]
+    found_text: str
+    journal_entry: str
 
 
 class BaseQuest:
     """
     Classe base da cui ereditano tutte le quest.
+
     Ogni quest deve definire:
-      - QUEST_ID       : str, identificatore univoco
-      - QUEST_NAME     : str, nome mostrato al giocatore
-      - QUEST_INTRO    : str, testo mostrato all'inizio
-      - FINALE_TEXT    : str, testo del finale
-      - FINALE_LOCATION: str, stanza dove si attiva il finale
-      - clues          : list[QuestClue]
-      - sanity_penalty : int, penalità sanità al completamento
+      QUEST_ID        : str, identificatore univoco
+      QUEST_NAME      : str, nome mostrato al giocatore
+      FINALE_TEXT     : str, testo del finale
+      FINALE_LOCATION : str, stanza dove si attiva il finale
+      clues           : list[QuestClue]
+      sanity_penalty  : int, penalità sanità al completamento
     """
 
     QUEST_ID = "base"
     QUEST_NAME = "Quest senza nome"
-    QUEST_INTRO = ""
     FINALE_TEXT = ""
     FINALE_LOCATION = "innsmouth_dock"
     sanity_penalty = 0
     clues: list[QuestClue] = []
+
+    def _found_key(self):
+        return f"{self.QUEST_ID}_found"
+
+    def _completed_key(self):
+        return f"{self.QUEST_ID}_completed"
 
     def check_clue(self, state, action: str) -> Optional[str]:
         """
         Controlla se l'azione sblocca un indizio nella stanza corrente.
         Ritorna il testo dell'indizio o None.
         """
-        if not hasattr(state, "quest_data"):
-            state.quest_data = {}
-        found_key = f"{self.QUEST_ID}_found"
+        found_key = self._found_key()
         if found_key not in state.quest_data:
             state.quest_data[found_key] = set()
 
@@ -66,15 +69,12 @@ class BaseQuest:
 
     def is_complete(self, state) -> bool:
         """Tutti gli indizi trovati."""
-        if not hasattr(state, "quest_data"):
-            return False
-        found = state.quest_data.get(f"{self.QUEST_ID}_found", set())
+        found = state.quest_data.get(self._found_key(), set())
         return len(found) >= len(self.clues)
 
     def is_finale_triggered(self, state) -> bool:
         """Finale attivabile: indizi completi + stanza giusta + non ancora completata."""
-        completed_key = f"{self.QUEST_ID}_completed"
-        already_done = state.quest_data.get(completed_key, False) if hasattr(state, "quest_data") else False
+        already_done = state.quest_data.get(self._completed_key(), False)
         return (
             self.is_complete(state)
             and state.location == self.FINALE_LOCATION
@@ -83,22 +83,16 @@ class BaseQuest:
 
     def complete(self, state) -> str:
         """Segna la quest come completata e applica effetti."""
-        if not hasattr(state, "quest_data"):
-            state.quest_data = {}
-        state.quest_data[f"{self.QUEST_ID}_completed"] = True
+        state.quest_data[self._completed_key()] = True
         state.sanity = max(0, state.sanity - self.sanity_penalty)
         return self.FINALE_TEXT
 
     def status(self, state) -> str:
         """Testo riassuntivo per /quest."""
-        if not hasattr(state, "quest_data"):
-            state.quest_data = {}
-
-        completed_key = f"{self.QUEST_ID}_completed"
-        if state.quest_data.get(completed_key, False):
+        if state.quest_data.get(self._completed_key(), False):
             return f"✅ *{self.QUEST_NAME}* — Completata"
 
-        found = state.quest_data.get(f"{self.QUEST_ID}_found", set())
+        found = state.quest_data.get(self._found_key(), set())
         total = len(self.clues)
         n = len(found)
 
@@ -115,7 +109,7 @@ class BaseQuest:
         return "\n".join(lines)
 
 
-# Nomi leggibili delle stanze (usato da status)
+# Nomi leggibili delle stanze
 LOCATIONS_NAMES = {
     "innsmouth_dock": "Molo di Innsmouth",
     "main_street": "Via Principale",

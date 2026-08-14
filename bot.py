@@ -122,12 +122,15 @@ def build_keyboard(state) -> InlineKeyboardMarkup:
                 buttons.append(item_row)
 
         # Azioni fisse interno
-        buttons.append([
-            InlineKeyboardButton("🚪 Esci", callback_data="building_exit"),
+        action_row = [
             InlineKeyboardButton("🎒 Inventario", callback_data="inventory"),
             InlineKeyboardButton("👁 Osserva", callback_data="room_look"),
             InlineKeyboardButton("📜 Quest", callback_data="quest"),
-        ])
+        ]
+        # Esci solo se sei nella stanza di ingresso
+        if building and state.current_room == building.ENTRY_ROOM:
+            action_row.insert(0, InlineKeyboardButton("🚪 Esci", callback_data="building_exit"))
+        buttons.append(action_row)
 
     else:
         # ── Mappa esterna ──
@@ -230,13 +233,7 @@ async def check_game_over(update: Update, state, user_id: int) -> bool:
 # Logica quest
 # ─────────────────────────────────────────────
 
-def init_quest_data(state):
-    if not hasattr(state, "quest_data"):
-        state.quest_data = {}
-
-
 async def process_quest_clues(update: Update, state, action: str) -> bool:
-    init_quest_data(state)
     for q in ACTIVE_QUESTS:
         clue_text = q.check_clue(state, action)
         if clue_text:
@@ -251,7 +248,6 @@ async def process_quest_clues(update: Update, state, action: str) -> bool:
 
 
 async def process_quest_finales(update: Update, state) -> bool:
-    init_quest_data(state)
     msg = update.callback_query.message if update.callback_query else update.message
     for q in ACTIVE_QUESTS:
         if q.is_finale_triggered(state):
@@ -263,7 +259,6 @@ async def process_quest_finales(update: Update, state) -> bool:
 
 
 def all_quests_status(state) -> str:
-    init_quest_data(state)
     if not ACTIVE_QUESTS:
         return "Nessuna quest disponibile."
     return "\n\n".join(q.status(state) for q in ACTIVE_QUESTS)

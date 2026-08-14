@@ -242,12 +242,12 @@ class PlayerState:
     inventory: list = field(default_factory=list)
     visited: set = field(default_factory=set)
     turn: int = 0
-    clues_found: set = field(default_factory=set)
-    quest_completed: bool = False
-    # Edifici
-    current_building: Optional[str] = None   # BUILDING_ID se dentro un edificio
-    current_room: Optional[str] = None       # room id corrente nell'edificio
-    building_data: dict = field(default_factory=dict)  # stanze visitate, ecc.
+    # Dati quest (gestiti da quests/base.py)
+    quest_data: dict = field(default_factory=dict)
+    # Dati edifici
+    current_building: Optional[str] = None
+    current_room: Optional[str] = None
+    building_data: dict = field(default_factory=dict)
 
     def current_location(self) -> dict:
         return LOCATIONS[self.location]
