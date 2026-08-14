@@ -29,7 +29,7 @@ from telegram.ext import (
 from game import (
     get_session, reset_session, move_player, pick_up_item,
     describe_location, describe_move, resolve_action,
-    use_item, render_map,
+    use_item, render_map, check_item_combo,
     LOCATIONS,
 )
 
@@ -105,9 +105,9 @@ def build_keyboard(state) -> InlineKeyboardMarkup:
         room = building.get_room(state.current_room) if building else None
 
         if room:
-            # Pulsanti direzioni interne
+            # Pulsanti direzioni interne (include uscite dinamiche)
             exit_row = []
-            for direction in room.exits:
+            for direction in building.get_exits(state.current_room, state):
                 label = DIRECTION_EMOJI.get(direction, direction.capitalize())
                 exit_row.append(InlineKeyboardButton(label, callback_data=f"room_move:{direction}"))
             if exit_row:
@@ -386,9 +386,22 @@ async def free_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await send_scene(update, state, result)
             return
 
+    # Controlla combo tra oggetti
+    combo = check_item_combo(state, action)
+    if combo:
+        await send_scene(update, state, combo["result"])
+        return
+
     # Azioni dentro un edificio
     if state.current_building:
         building = get_current_building(state)
+
+        # Controlla combo oggetti
+        combo = check_item_combo(state, action)
+        if combo:
+            await send_scene(update, state, combo["result"])
+            return
+
         result = building.resolve_action(state.current_room, action)
         if result:
             state.turn += 1
@@ -454,7 +467,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif data.startswith("room_move:"):
         direction = data.split(":", 1)[1]
         building = get_current_building(state)
-        new_room_id = building.move(state.current_room, direction)
+        new_room_id = building.move(state.current_room, direction, state)
         if new_room_id:
             state.current_room = new_room_id
             state.turn += 1

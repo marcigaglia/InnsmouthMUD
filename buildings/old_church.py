@@ -28,7 +28,12 @@ class OldChurchBuilding(BaseBuilding):
         "ma non scompare del tutto. Non scomparirà più."
     )
 
-    rooms = {
+    # Uscite sbloccate dinamicamente dai flag
+    DYNAMIC_EXITS = {
+        "cripta": {
+            "botola_aperta": {"giu": "abisso"}
+        }
+    }
 
         "navata": Room(
             id="navata",
@@ -140,6 +145,10 @@ class OldChurchBuilding(BaseBuilding):
                     "Offerta alla Profondità — Partecipanti: 47'. "
                     "Quarantasette persone. In questa città fantasma."
                 ),
+                "fiammiferi": (
+                    "Una scatola di fiammiferi cerati, ancora asciutti. "
+                    "Qualcuno li ha lasciati qui di recente."
+                ),
             },
             actions={
                 "esamina vesti": [
@@ -223,7 +232,7 @@ class OldChurchBuilding(BaseBuilding):
                 "Luci bioluminescenti verdi filtrano da sotto la botola. "
                 "Il canto è più forte qui di qualunque altro posto nella chiesa.",
             ],
-            exits={"su": "navata"},
+            exits={"su": "navata"},   # 'giu' viene aggiunto dinamicamente se botola_aperta
             items={
                 "chiave della botola": (
                     "Una chiave di bronzo verde, coperta di incrostazioni marine. "
@@ -250,6 +259,67 @@ class OldChurchBuilding(BaseBuilding):
                 ],
             },
             sanity_penalty=10,
+        ),
+
+        "abisso": Room(
+            id="abisso",
+            name="La Soglia dell'Abisso",
+            first_visit=(
+                "Scendi per una scala di pietra umida. L'aria cambia — non è più aria, "
+                "è qualcosa di più denso, più antico. La scala termina su una piattaforma "
+                "naturale di roccia che si affaccia direttamente sull'oceano sotterraneo.\n\n"
+                "Non è un lago. È il mare vero — lo stesso mare fuori da Innsmouth, "
+                "ma visto da sotto. La superficie dell'acqua è sopra di te, "
+                "illuminata da una luce verde bioluminescente che non ha sorgente visibile.\n\n"
+                "Nella roccia accanto a te: impronte. Umane nella forma, "
+                "ma con dita troppo lunghe. Recenti."
+            ),
+            descriptions=[
+                "L'oceano sotterraneo si stende davanti a te nel silenzio assoluto. "
+                "Qualcosa di enorme si muove nelle profondità — lo vedi solo come un'ombra, "
+                "più scura dell'acqua scura.",
+                "Le pareti della caverna sono coperte di incisioni: la stessa scena "
+                "ripetuta migliaia di volte. Uomini che entrano nell'acqua. "
+                "Qualcos'altro che ne esce.",
+                "La luce verde pulsa lentamente. Come un respiro. "
+                "O come un cuore enormemente lento.",
+            ],
+            exits={"su": "cripta"},
+            items={
+                "gemma abissale": (
+                    "Una pietra traslucida verde, grande come un pugno, "
+                    "che emette la stessa luce bioluminescente delle profondità. "
+                    "Calda. Pulsante. Come se fosse viva."
+                ),
+            },
+            actions={
+                "guarda acqua": [
+                    "Ti sporgi sul bordo. L'acqua è perfettamente trasparente — "
+                    "vedi decine di metri di profondità. E nel buio più sotto, "
+                    "qualcosa ti guarda. Ha troppe pupille.",
+                    "La superficie dell'acqua è immobile. Poi, senza causa, "
+                    "si forma un cerchio perfetto al centro. Qualcosa sta per emergere. "
+                    "Non aspetti per scoprire cosa.",
+                ],
+                "ascolta": [
+                    "Il silenzio qui è assoluto tranne per un suono: "
+                    "un battito ritmico che viene dalle profondità. "
+                    "Non è un'eco. È una risposta.",
+                    "Voci. Centinaia di voci che cantano all'unisono, "
+                    "sommerse dall'acqua, indisturbate dall'oceano sopra di loro.",
+                ],
+                "tocca acqua": [
+                    "Immergi un dito. L'acqua è a temperatura corporea. "
+                    "Per un secondo senti qualcosa toccarti dall'interno — "
+                    "dita fredde che stringono le tue. Ti ritiri di scatto. _-8 Sanità._",
+                ],
+                "esamina incisioni": [
+                    "Le incisioni raccontano una storia: Y'ha-nthlei — la città sommersa — "
+                    "esiste da prima che gli uomini camminassero sulla terra. "
+                    "E aspetta. Ha tutto il tempo del mondo.",
+                ],
+            },
+            sanity_penalty=15,
         ),
     }
 

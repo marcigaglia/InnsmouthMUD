@@ -43,6 +43,8 @@ class BaseBuilding:
     ENTRY_TEXT = "Entri nell'edificio."
     EXIT_TEXT = "Esci all'aperto."
     rooms: dict[str, Room] = {}
+    # Uscite sbloccate da flag: {room_id: {flag: {direzione: room_target}}}
+    DYNAMIC_EXITS: dict = {}
 
     def get_room(self, room_id: str) -> Optional[Room]:
         return self.rooms.get(room_id)
@@ -80,12 +82,32 @@ class BaseBuilding:
                 return random.choice(responses)
         return None
 
-    def move(self, room_id: str, direction: str) -> Optional[str]:
-        """Sposta il giocatore nella stanza adiacente. Ritorna il nuovo room_id o None."""
+    def get_exits(self, room_id: str, state) -> dict:
+        """
+        Ritorna le uscite disponibili per la stanza, includendo
+        quelle dinamiche sbloccate dai flag del giocatore.
+        """
         room = self.get_room(room_id)
-        if room and direction in room.exits:
-            return room.exits[direction]
-        return None
+        if not room:
+            return {}
+        exits = dict(room.exits)
+
+        # Uscite dinamiche: definite in DYNAMIC_EXITS come
+        # {room_id: {flag_required: {direction: target_room}}}
+        for flag, routes in self.DYNAMIC_EXITS.get(room_id, {}).items():
+            if flag in state.flags:
+                exits.update(routes)
+
+        return exits
+
+    def move(self, room_id: str, direction: str, state=None) -> Optional[str]:
+        """Sposta il giocatore. Supporta uscite dinamiche se state è fornito."""
+        if state:
+            exits = self.get_exits(room_id, state)
+        else:
+            room = self.get_room(room_id)
+            exits = room.exits if room else {}
+        return exits.get(direction)
 
     def pick_item(self, state, room_id: str, item_name: str) -> Optional[str]:
         """Raccoglie un oggetto dalla stanza. Ritorna la descrizione o None."""

@@ -244,6 +244,8 @@ class PlayerState:
     turn: int = 0
     # Dati quest (gestiti da quests/base.py)
     quest_data: dict = field(default_factory=dict)
+    # Flag globali di stato del mondo
+    flags: set = field(default_factory=set)
     # Dati edifici
     current_building: Optional[str] = None
     current_room: Optional[str] = None
@@ -332,6 +334,115 @@ def pick_up_item(state: PlayerState, item: str) -> Optional[str]:
             state.inventory.append(item_name)
             state.turn += 1
             return description
+    return None
+
+
+# ─────────────────────────────────────────────
+# Interazioni tra oggetti (combo)
+# ─────────────────────────────────────────────
+#
+# Struttura di ogni combo:
+#   "trigger"       : parole chiave nell'azione del giocatore (tutte presenti = match)
+#   "required_item" : oggetto che deve essere nell'inventario
+#   "target_item"   : oggetto su cui si agisce (in inventario o nella stanza)
+#   "missing_msg"   : risposta se required_item manca
+#   "success_msg"   : risposta se tutto ok
+#   "sanity_change" : effetto sulla sanità (opzionale)
+#   "hp_change"     : effetto sugli HP (opzionale)
+#   "consume_required" : se True, rimuove required_item dall'inventario dopo l'uso
+
+ITEM_COMBOS = [
+    {
+        "trigger": ["accendo", "candela"],
+        "required_item": "fiammiferi",
+        "target_item": "candela nera",
+        "missing_msg": "Con cosa vuoi accendere la candela? Non hai nulla per farlo.",
+        "success_msg": (
+            "Strofini un fiammifero. La candela nera prende fuoco — ma la fiamma è verde, "
+            "fredda, e non fa luce nel senso normale. Illumina invece ombre che non dovrebbero "
+            "esserci: sagome sul muro che si muovono indipendentemente dal tuo corpo. "
+            "Un brivido ti percorre la schiena. _-5 Sanità._"
+        ),
+        "sanity_change": -5,
+        "consume_required": False,
+    },
+    {
+        "trigger": ["accendo", "lanterna"],
+        "required_item": "fiammiferi",
+        "target_item": "lanterna spenta",
+        "missing_msg": "Con cosa vuoi accendere la lanterna? Non hai nulla per farlo.",
+        "success_msg": (
+            "Riempi la lanterna con un po' di olio trovato per terra e la accendi. "
+            "Una luce calda e tremolante illumina l'ambiente. "
+            "Ti senti un po' meno solo. _+5 HP._"
+        ),
+        "hp_change": 5,
+        "consume_required": True,
+    },
+    {
+        "trigger": ["uso", "chiave", "botola"],
+        "required_item": "chiave della botola",
+        "target_item": "chiave della botola",
+        "missing_msg": "Non hai nessuna chiave.",
+        "success_msg": (
+            "Inserisci la chiave nella serratura della botola. Gira. Le catene cedono. "
+            "Un odore di oceano profondo sale da sotto — salino, organico, antico. "
+            "Qualcosa si muove nell'oscurità sotto di te. Poi silenzio. "
+            "La botola è aperta. *Si è aperta una via verso il basso.* _-10 Sanità._"
+        ),
+        "sanity_change": -10,
+        "consume_required": False,
+        "set_flag": "botola_aperta",
+    },
+]
+
+
+def check_item_combo(state: PlayerState, action: str) -> Optional[dict]:
+    """
+    Controlla se l'azione corrisponde a una combo tra oggetti.
+    Ritorna un dict con il risultato, o None se nessuna combo corrisponde.
+
+    Il dict può contenere:
+      "result"  : testo da mostrare al giocatore
+      "missing" : True se il required_item manca (per mostrare msg diverso)
+    """
+    action_lower = action.lower().strip()
+
+    for combo in ITEM_COMBOS:
+        # Tutti i trigger devono essere presenti nell'azione
+        if not all(t in action_lower for t in combo["trigger"]):
+            continue
+
+        # Verifica che il target_item sia in inventario o nella stanza corrente
+        has_target = (
+            any(combo["target_item"].lower() in i.lower() for i in state.inventory)
+            or combo["target_item"].lower() in [k.lower() for k in state.current_location()["items"].keys()]
+        )
+        if not has_target:
+            continue
+
+        # Controlla se ha il required_item
+        has_required = any(combo["required_item"].lower() in i.lower() for i in state.inventory)
+        if not has_required:
+            return {"result": combo["missing_msg"], "missing": True}
+
+        # Successo — applica effetti
+        state.sanity = max(0, min(100, state.sanity + combo.get("sanity_change", 0)))
+        state.hp = max(0, min(100, state.hp + combo.get("hp_change", 0)))
+
+        # Imposta flag se previsto
+        if "set_flag" in combo:
+            state.flags.add(combo["set_flag"])
+
+        # Consuma il required_item se richiesto
+        if combo.get("consume_required", False):
+            for i, inv_item in enumerate(state.inventory):
+                if combo["required_item"].lower() in inv_item.lower():
+                    state.inventory.pop(i)
+                    break
+
+        return {"result": combo["success_msg"], "missing": False}
+
     return None
 
 
