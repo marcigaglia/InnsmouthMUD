@@ -35,6 +35,8 @@ class OldChurchBuilding(BaseBuilding):
         }
     }
 
+    rooms = {
+
         "navata": Room(
             id="navata",
             name="Navata della Chiesa",
