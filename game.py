@@ -244,6 +244,10 @@ class PlayerState:
     turn: int = 0
     clues_found: set = field(default_factory=set)
     quest_completed: bool = False
+    # Edifici
+    current_building: Optional[str] = None   # BUILDING_ID se dentro un edificio
+    current_room: Optional[str] = None       # room id corrente nell'edificio
+    building_data: dict = field(default_factory=dict)  # stanze visitate, ecc.
 
     def current_location(self) -> dict:
         return LOCATIONS[self.location]
