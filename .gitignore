@@ -1,0 +1,21 @@
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ambienti virtuali
+.venv/
+venv/
+env/
+
+# Variabili d'ambiente locali
+.env
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# macOS
+.DS_Store
