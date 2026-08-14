@@ -1,14 +1,7 @@
-"""
-game.py — Motore narrativo classico MUD stile lovecraftiano.
-Nessuna AI: testi scritti a mano, varianti random per atmosfera.
-"""
-
-import random
-from dataclasses import dataclass, field
-from typing import Optional
-
 # ─────────────────────────────────────────────
-# Database location esterne
+# Generato con MUD Map Editor
+# Incolla questo blocco in game.py
+# sostituendo LOCATIONS e MOVE_DESCRIPTIONS
 # ─────────────────────────────────────────────
 
 LOCATIONS = {
@@ -35,11 +28,7 @@ LOCATIONS = {
                 "Voci? No. Solo il vento. Eppure le parole sembrano formarsi da sole nella tua testa: 'Vieni. Vieni.'",
             ],
         },
-        "first_visit": (
-            "Il molo di Innsmouth ti accoglie con indifferenza. L'autobus è già sparito dietro la collina. "
-            "Non c'è nessuno in vista — solo il rumore del mare e il cigolìo del legno. "
-            "Un cartello sbiadito recita: INNSMOUTH — POP. 1243. Qualcuno ha cancellato il numero con la vernice rossa."
-        ),
+        "first_visit": "Il molo di Innsmouth ti accoglie con indifferenza. L'autobus è già sparito dietro la collina.",
     },
 
     "main_street": {
@@ -63,11 +52,7 @@ LOCATIONS = {
                 "Nessuno risponde. Ma attraverso le assi vedi un occhio — grande, giallo, senza palpebre — che ti osserva.",
             ],
         },
-        "first_visit": (
-            "La via principale di Innsmouth era probabilmente bella, una volta. "
-            "Ora è un monumento al decadimento. Negozi sbarrati, insegne illeggibili, "
-            "e quella sensazione costante di essere osservato da mille angoli contemporaneamente."
-        ),
+        "first_visit": "La via principale di Innsmouth era probabilmente bella, una volta.",
     },
 
     "old_church": {
@@ -96,10 +81,7 @@ LOCATIONS = {
                 "Le note sono impossibili per una voce umana. Troppo basse, troppo continue. Chi canta non respira.",
             ],
         },
-        "first_visit": (
-            "La chiesa di Dagon è il cuore malato di Innsmouth. "
-            "La porta è sigillata, ma qualcosa là dentro sa che sei arrivato."
-        ),
+        "first_visit": "La chiesa di Dagon è il cuore malato di Innsmouth.",
         "sanity_penalty": 5,
     },
 
@@ -128,10 +110,7 @@ LOCATIONS = {
                 "Solo il vento e il mare. E qualcosa che gratta sotto il pavimento, lento e paziente.",
             ],
         },
-        "first_visit": (
-            "La capanna sembra abbandonata da settimane, forse mesi. "
-            "Ma il fuoco nel camino era acceso di recente — le ceneri sono ancora tiepide."
-        ),
+        "first_visit": "La capanna sembra abbandonata da settimane, forse mesi.",
     },
 
     "marshes": {
@@ -159,10 +138,7 @@ LOCATIONS = {
                 "Il silenzio è totale. Poi realizzi: nessun insetto. Nessuna rana. Niente. Le paludi sono morte.",
             ],
         },
-        "first_visit": (
-            "Le paludi di Innsmouth sono il confine tra il mondo conosciuto e qualcosa d'altro. "
-            "Nessun cartello vieta l'accesso — nessuno sente il bisogno di farlo."
-        ),
+        "first_visit": "Le paludi di Innsmouth sono il confine tra il mondo conosciuto e qualcosa d'altro.",
         "sanity_penalty": 8,
     },
 
@@ -173,8 +149,10 @@ LOCATIONS = {
             "La piazza è deserta. Le finestre degli edifici circostanti sono tutte sprangate. Eppure senti la sensazione precisa di essere al centro di molti sguardi.",
             "Il vento porta un odore di salsedine anche qui, lontano dal mare. Come se il mare stesse avanzando.",
         ],
-        "exits": {"est": "main_street", "nord": "gilman_hotel"},
-        "items": {},
+        "exits": {"est": "main_street", "nord": "gilman_hotel", "ovest": "antica_villa"},
+        "items": {
+            # nessun oggetto
+        },
         "actions": {
             "esamina statua": [
                 "La statua è senza nome, senza targa. La figura centrale tiene le braccia aperte verso il cielo — o verso qualcosa che viene dal cielo.",
@@ -184,10 +162,7 @@ LOCATIONS = {
                 "Dal Gilman Hotel a nord proviene musica. Vecchia, stonata, come un carillon sommerso nell'acqua.",
             ],
         },
-        "first_visit": (
-            "La piazza centrale di Innsmouth. Una volta doveva essere il cuore della città. "
-            "Ora è solo un vuoto sorvegliato da finestre cieche."
-        ),
+        "first_visit": "La piazza centrale di Innsmouth. Una volta doveva essere il cuore della città.",
     },
 
     "gilman_hotel": {
@@ -214,11 +189,22 @@ LOCATIONS = {
                 "Sul bancone trovi una chiave con il numero 17. È calda, come se qualcuno la tenesse in mano fino a un momento fa.",
             ],
         },
-        "first_visit": (
-            "Il Gilman Hotel è il posto dove i viaggiatori di passaggio dormivano. "
-            "Nessuno di loro era di passaggio davvero."
-        ),
+        "first_visit": "Il Gilman Hotel è il posto dove i viaggiatori di passaggio dormivano.",
         "sanity_penalty": 3,
+    },
+
+    "antica_villa": {
+        "name": "Villa Antica",
+        "descriptions": [
+
+        ],
+        "exits": {"est": "piazza"},
+        "items": {
+            # nessun oggetto
+        },
+        "actions": {
+            # nessuna azione
+        },
     },
 }
 
@@ -227,308 +213,18 @@ LOCATIONS = {
 # ─────────────────────────────────────────────
 
 MOVE_DESCRIPTIONS = {
-    ("innsmouth_dock", "main_street"): "Ti allontani dal molo. L'odore del mare ti segue.",
-    ("main_street", "innsmouth_dock"): "Torni verso il molo. L'acqua nera ti aspetta.",
-    ("innsmouth_dock", "fishermans_hut"): "Percorri la riva fino alla capanna. Il legno del pontile cigola sotto i tuoi passi.",
-    ("fishermans_hut", "innsmouth_dock"): "Torni al molo. Le tue scarpe lasciano impronte umide.",
-    ("main_street", "old_church"): "Ti avvicini alla chiesa. Il canto si fa più forte ad ogni passo.",
-    ("old_church", "main_street"): "Ti allontani dalla chiesa. Il canto si affievolisce, ma non scompare dalla tua testa.",
-    ("main_street", "marshes"): "Entri nelle paludi. La nebbia ti avvolge immediatamente.",
-    ("marshes", "main_street"): "Torni in città. L'aria delle paludi sembra seguirti.",
-    ("main_street", "piazza"): "Attraversi un vicolo buio e sbuchi nella piazza centrale.",
-    ("piazza", "main_street"): "Lasci la piazza e torni sulla via principale.",
-    ("piazza", "gilman_hotel"): "Spingi la porta del Gilman Hotel. Cigola come se non venisse aperta da anni.",
-    ("gilman_hotel", "piazza"): "Esci dall'hotel. L'aria aperta sembra più pulita, anche se sa di mare.",
+    ("innsmouth_dock", "main_street"): "Ti sposti verso nord.",
+    ("innsmouth_dock", "fishermans_hut"): "Ti sposti verso est.",
+    ("main_street", "innsmouth_dock"): "Ti sposti verso sud.",
+    ("main_street", "old_church"): "Ti sposti verso est.",
+    ("main_street", "marshes"): "Ti sposti verso nord.",
+    ("main_street", "piazza"): "Ti sposti verso ovest.",
+    ("old_church", "main_street"): "Ti sposti verso ovest.",
+    ("fishermans_hut", "innsmouth_dock"): "Ti sposti verso ovest.",
+    ("marshes", "main_street"): "Ti sposti verso sud.",
+    ("piazza", "main_street"): "Ti sposti verso est.",
+    ("piazza", "gilman_hotel"): "Ti sposti verso nord.",
+    ("gilman_hotel", "piazza"): "Ti sposti verso sud.",
+    ("antica_villa", "piazza"): "Ti sposti verso est.",
+    ("piazza", "antica_villa"): "Ti sposti verso ovest.",
 }
-
-# ─────────────────────────────────────────────
-# Risposte generiche
-# ─────────────────────────────────────────────
-
-GENERIC_RESPONSES = [
-    "Non succede nulla di particolare. Ma la sensazione di essere osservato si intensifica.",
-    "Provi, ma Innsmouth non ti offre risposte facili.",
-    "Il silenzio è la sola risposta che ricevi.",
-    "Qualcosa ti ferma — un istinto primordiale che ti dice di non farlo.",
-    "L'azione non porta a nulla di visibile. Almeno, non ancora.",
-]
-
-# ─────────────────────────────────────────────
-# Stato giocatore
-# ─────────────────────────────────────────────
-
-@dataclass
-class PlayerState:
-    location: str = "innsmouth_dock"
-    hp: int = 100
-    sanity: int = 100
-    inventory: list = field(default_factory=list)
-    visited: set = field(default_factory=set)
-    turn: int = 0
-    quest_data: dict = field(default_factory=dict)
-    flags: set = field(default_factory=set)
-    current_building: Optional[str] = None
-    current_room: Optional[str] = None
-    building_data: dict = field(default_factory=dict)
-
-    def current_location(self) -> dict:
-        return LOCATIONS[self.location]
-
-    def to_context(self) -> str:
-        loc = self.current_location()
-        return f"Luogo: {loc['name']} | HP: {self.hp} | Sanità: {self.sanity}"
-
-
-# ─────────────────────────────────────────────
-# Motore narrativo
-# ─────────────────────────────────────────────
-
-def describe_location(state: "PlayerState") -> str:
-    loc = state.current_location()
-    loc_id = state.location
-    if loc_id not in state.visited:
-        state.visited.add(loc_id)
-        penalty = loc.get("sanity_penalty", 0)
-        if penalty:
-            state.sanity = max(0, state.sanity - penalty)
-        return loc.get("first_visit", random.choice(loc["descriptions"]))
-    return random.choice(loc["descriptions"])
-
-
-def describe_move(from_loc: str, to_loc: str) -> str:
-    key = (from_loc, to_loc)
-    return MOVE_DESCRIPTIONS.get(key, "Ti sposti verso la destinazione.")
-
-
-def resolve_action(state: "PlayerState", action: str) -> dict:
-    loc = state.current_location()
-    action_lower = action.lower().strip()
-    for keyword, responses in loc.get("actions", {}).items():
-        if keyword in action_lower or any(w in action_lower for w in keyword.split()):
-            return {"narration": random.choice(responses), "sanity_change": 0, "hp_change": 0}
-    return {"narration": random.choice(GENERIC_RESPONSES), "sanity_change": 0, "hp_change": 0}
-
-
-def move_player(state: "PlayerState", direction: str) -> Optional[str]:
-    loc = state.current_location()
-    if direction in loc["exits"]:
-        old_loc = state.location
-        state.location = loc["exits"][direction]
-        state.turn += 1
-        return old_loc
-    return None
-
-
-def pick_up_item(state: "PlayerState", item: str) -> Optional[str]:
-    loc = state.current_location()
-    for item_name in list(loc["items"].keys()):
-        if item.lower() in item_name.lower():
-            description = loc["items"].pop(item_name)
-            state.inventory.append(item_name)
-            state.turn += 1
-            return description
-    return None
-
-
-# ─────────────────────────────────────────────
-# Interazioni tra oggetti (combo)
-# ─────────────────────────────────────────────
-
-ITEM_COMBOS = [
-    {
-        "trigger": ["accendo", "candela"],
-        "required_item": "fiammiferi",
-        "target_item": "candela nera",
-        "missing_msg": "Con cosa vuoi accendere la candela? Non hai nulla per farlo.",
-        "success_msg": (
-            "Strofini un fiammifero. La candela nera prende fuoco — ma la fiamma è verde, "
-            "fredda, e non fa luce nel senso normale. Illumina invece ombre che non dovrebbero "
-            "esserci: sagome sul muro che si muovono indipendentemente dal tuo corpo. "
-            "Un brivido ti percorre la schiena. _-5 Sanità._"
-        ),
-        "sanity_change": -5,
-        "consume_required": False,
-    },
-    {
-        "trigger": ["accendo", "lanterna"],
-        "required_item": "fiammiferi",
-        "target_item": "lanterna spenta",
-        "missing_msg": "Con cosa vuoi accendere la lanterna? Non hai nulla per farlo.",
-        "success_msg": (
-            "Riempi la lanterna con un po' di olio trovato per terra e la accendi. "
-            "Una luce calda e tremolante illumina l'ambiente. "
-            "Ti senti un po' meno solo. _+5 HP._"
-        ),
-        "hp_change": 5,
-        "consume_required": True,
-    },
-    {
-        "trigger": ["uso", "chiave", "botola"],
-        "required_item": "chiave della botola",
-        "target_item": "chiave della botola",
-        "missing_msg": "Non hai nessuna chiave.",
-        "success_msg": (
-            "Inserisci la chiave nella serratura della botola. Gira. Le catene cedono. "
-            "Un odore di oceano profondo sale da sotto — salino, organico, antico. "
-            "Qualcosa si muove nell'oscurità sotto di te. Poi silenzio. "
-            "La botola è aperta. *Si è aperta una via verso il basso.* _-10 Sanità._"
-        ),
-        "sanity_change": -10,
-        "consume_required": False,
-        "set_flag": "botola_aperta",
-    },
-]
-
-
-def check_item_combo(state: "PlayerState", action: str) -> Optional[dict]:
-    action_lower = action.lower().strip()
-    for combo in ITEM_COMBOS:
-        if not all(t in action_lower for t in combo["trigger"]):
-            continue
-        has_target = (
-            any(combo["target_item"].lower() in i.lower() for i in state.inventory)
-            or combo["target_item"].lower() in [k.lower() for k in state.current_location()["items"].keys()]
-        )
-        if not has_target:
-            continue
-        has_required = any(combo["required_item"].lower() in i.lower() for i in state.inventory)
-        if not has_required:
-            return {"result": combo["missing_msg"], "missing": True}
-        state.sanity = max(0, min(100, state.sanity + combo.get("sanity_change", 0)))
-        state.hp = max(0, min(100, state.hp + combo.get("hp_change", 0)))
-        if "set_flag" in combo:
-            state.flags.add(combo["set_flag"])
-        if combo.get("consume_required", False):
-            for i, inv_item in enumerate(state.inventory):
-                if combo["required_item"].lower() in inv_item.lower():
-                    state.inventory.pop(i)
-                    break
-        return {"result": combo["success_msg"], "missing": False}
-    return None
-
-
-# ─────────────────────────────────────────────
-# Mappa ASCII
-# ─────────────────────────────────────────────
-
-LOCATION_LABELS = {
-    "innsmouth_dock": "MOLO",
-    "main_street":    " VIA ",
-    "old_church":     "CHIES",
-    "fishermans_hut": "CAPAN",
-    "marshes":        "PALUD",
-    "piazza":         "PIAZZ",
-    "gilman_hotel":   "GILMN",
-}
-
-
-def render_map(state: "PlayerState") -> str:
-    current_name = LOCATIONS[state.location]["name"]
-    visited_count = len(state.visited)
-    total = len(LOCATIONS)
-
-    def box(loc_id):
-        if loc_id not in LOCATIONS:
-            return "         "
-        if loc_id == state.location:
-            return "[ ◉ YOU ]"
-        elif loc_id in state.visited:
-            return "[  ░░░  ]"
-        else:
-            return "[  ???  ]"
-
-    map_art = (
-        "```\n"
-        "  ╔══════════════════════╗\n"
-        "  ║   MAPPA DI INNSMOUTH ║\n"
-        "  ╚══════════════════════╝\n"
-        "\n"
-        f"       {box('gilman_hotel')}\n"
-        "         Gilman Hotel\n"
-        "            │\n"
-        f"       {box('piazza')}\n"
-        "          Piazza\n"
-        "            │\n"
-        f"       {box('marshes')}\n"
-        "          Paludi\n"
-        "            │\n"
-        f"{box('fishermans_hut')}─────{box('main_street')}─────{box('old_church')}\n"
-        "  Capanna   │    Via    │   Chiesa\n"
-        "            │\n"
-        f"       {box('innsmouth_dock')}\n"
-        "         Molo\n"
-        "            │\n"
-        "        ≈≈≈≈≈≈≈\n"
-        "        MARE NERO\n"
-        "\n"
-        f"◉ = Sei qui: {current_name}\n"
-        f"░ = Visitato  ? = Inesplorato\n"
-        f"Luoghi visitati: {visited_count}/{total}\n"
-        "```"
-    )
-    return map_art
-
-
-def use_item(state: "PlayerState", item: str) -> Optional[str]:
-    item_lower = item.lower()
-    found = None
-    for inv_item in state.inventory:
-        if item_lower in inv_item.lower():
-            found = inv_item
-            break
-    if not found:
-        return None
-
-    if "mappa" in found.lower():
-        return render_map(state)
-    if "lanterna" in found.lower():
-        return ("Scuoti la lanterna — è vuota. Ma per un secondo, nella luce assente, "
-                "vedi l'ombra di qualcosa che non c'è. Poi tutto torna buio.")
-    if "arpione" in found.lower():
-        state.hp = min(100, state.hp + 5)
-        return ("Stringi l'arpione. Il metallo arrugginito taglia il palmo della mano — "
-                "non abbastanza da fare male davvero, ma abbastanza da ricordarti che sei ancora vivo. _+5 HP._")
-    if "simbolo" in found.lower():
-        state.sanity = max(0, state.sanity - 5)
-        return ("Fissi il simbolo di Dagon. I bordi sembrano muoversi. "
-                "La tua mente vacilla. _-5 Sanità._")
-    if "candela" in found.lower():
-        return ("Tieni la candela nera. Non brucia, eppure scalda. "
-                "Un odore di incenso e alghe ti avvolge.")
-    if "appunti" in found.lower():
-        return ("Rileggi gli appunti del pescatore. Una riga che non avevi notato: "
-                "'_Se li incontri, non guardare gli occhi. Non gli occhi._'")
-    if "pietra" in found.lower():
-        state.sanity = max(0, state.sanity - 3)
-        return ("Le incisioni sulla pietra sembrano calde al tatto. "
-                "Le figure sembrano muoversi. _-3 Sanità._")
-    if "rete" in found.lower():
-        return ("Srotoli la rete. È strappata dall'interno verso l'esterno. "
-                "Qualunque cosa ci fosse rimasta intrappolata, si è liberata con forza.")
-    if "giornale" in found.lower():
-        return ("Sfoglie il giornale ingiallito. Un articolo sul 'Grande Festival di Dagon del 1927'. "
-                "Le foto sono state strappate via, ma rimane una didascalia: "
-                "'I cittadini di Innsmouth celebrano la loro eredità ancestrale.'")
-    if "registro" in found.lower():
-        return ("Rileggi il registro. Centinaia di nomi, tutti con date di arrivo. "
-                "Nessuna data di partenza. Nemmeno una.")
-
-    return f"Esamini {found}, ma non sai come usarlo qui."
-
-
-# ─────────────────────────────────────────────
-# Sessioni
-# ─────────────────────────────────────────────
-
-sessions: dict[int, PlayerState] = {}
-
-
-def get_session(user_id: int) -> PlayerState:
-    if user_id not in sessions:
-        sessions[user_id] = PlayerState()
-    return sessions[user_id]
-
-
-def reset_session(user_id: int) -> PlayerState:
-    sessions[user_id] = PlayerState()
-    return sessions[user_id]
